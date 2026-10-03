@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="km">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Official Receipt - Oeng Kimlay</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;600;700&display=swap');
+        
+        * { box-sizing: border-box; }
+        body { 
+            font-family: 'Noto Sans Khmer', sans-serif; 
+            line-height: 1.4;
+        }
+        .border-table { 
+            border: 1px solid #000; 
+            border-collapse: collapse; 
+            width: 100%;
+        }
+        .border-table td, .border-table th { 
+            border: 1px solid #000; 
+            padding: 10px 8px; 
+            font-size: 13px;
+        }
+        .border-table th { background-color: #f9fafb; }
+
+        /* PDF-specific styles */
+        @media print {
+            body { background: white !important; }
+            .no-print { display: none !important; }
+            #receiptPreview { box-shadow: none !important; padding: 0 !important; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen py-6 px-4">
+    <div class="max-w-3xl mx-auto">
+        <!-- ⚙️ EDITABLE COMPANY INFO - Hidden in PDF -->
+        <div class="bg-white rounded-lg shadow-md p-5 mb-6 no-print">
+            <h3 class="font-bold text-lg mb-3 text-blue-700">⚙️ Edit Business Details</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="text-sm font-medium text-gray-600">Company Name</label>
+                    <input type="text" id="companyName" value="OENG KIMLAY" 
+                        class="w-full px-3 py-2 border rounded-md">
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-600">Description / Khmer</label>
+                    <input type="text" id="companyDesc" value="ទិញ/លក់អុសគ្រប់ប្រភេទ" 
+                        class="w-full px-3 py-2 border rounded-md">
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-600">Telephone</label>
+                    <input type="text" id="companyTel" value="Tel: 070 73 2000/071 9999 691" 
+                        class="w-full px-3 py-2 border rounded-md">
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-600">Payment Method</label>
+                    <input type="text" id="paymentMethod" value="ABA : 070732000 (Oeng Kimlay)" 
+                        class="w-full px-3 py-2 border rounded-md">
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-600">Customer Name</label>
+                    <input type="text" id="customerName" value="LI FU" 
+                        class="w-full px-3 py-2 border rounded-md">
+                </div>
+            </div>
+        </div>
+
+        <!-- ➕ ADD ITEM PANEL - Hidden in PDF -->
+        <div class="bg-white rounded-lg shadow-md p-5 mb-6 no-print">
+            <h3 class="font-bold text-lg mb-3 text-green-700">➕ Add New Item</h3>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div>
+                    <label class="text-sm font-medium">Date</label>
+                    <input type="date" id="itemDate" class="w-full px-3 py-2 border rounded-md">
+                </div>
+                <div>
+                    <label class="text-sm font-medium">Name/Item</label>
+                    <input type="text" id="itemName" value="អុស" class="w-full px-3 py-2 border rounded-md">
+                </div>
+                <div>
+                    <label class="text-sm font-medium">Qty (m³)</label>
+                    <input type="number" step="0.1" id="itemQty" class="w-full px-3 py-2 border rounded-md">
+                </div>
+                <div>
+                    <label class="text-sm font-medium">Price ($)</label>
+                    <input type="number" step="0.01" id="itemPrice" value="14" class="w-full px-3 py-2 border rounded-md">
+                </div>
+            </div>
+            <button onclick="addItem()" 
+                class="mt-4 bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-md font-medium">
+                ➕ Add Row
+            </button>
+        </div>
+
+        <!-- 📋 RECEIPT PREVIEW - This becomes the PDF -->
+        <div id="receiptPreview" class="bg-white p-10 shadow-lg mb-6">
+            <!-- Header -->
+            <div class="flex justify-between items-start mb-6">
+                <div>
+                    <h1 id="dispCompanyName" class="text-2xl font-bold uppercase tracking-wide">OENG KIMLAY</h1>
+                    <p id="dispCompanyDesc" class="text-lg mt-2">ទិញ/លក់អុសគ្រប់ប្រភេទ</p>
+                </div>
+                <div class="text-right text-sm">
+                    <p id="dispTel">Tel: 070 73 2000/071 9999 691</p>
+                    <p id="dispPayment" class="mt-1">ABA : 070732000 (Oeng Kimlay)</p>
+                </div>
+            </div>
+
+            <h2 class="text-center text-xl font-bold my-6">OFFICIAL RECEIPT</h2>
+            <p class="mb-4 text-base"><strong>Customer:</strong> <span id="dispCustomer">LI FU</span></p>
+
+            <!-- Items Table -->
+            <table class="border-table">
+                <thead>
+                    <tr>
+                        <th style="width: 8%;">ល.រ<br/>No</th>
+                        <th style="width: 18%;">កាលបរិច្ឆេទ<br/>Date</th>
+                        <th style="width: 22%;">ឈ្មោះទំនិញ<br/>Name</th>
+                        <th style="width: 12%;">ចំនួន (ម³)<br/>Qty</th>
+                        <th style="width: 15%;">តម្លៃ<br/>Price ($)</th>
+                        <th style="width: 15%;">តម្លៃសរុប<br/>Amount ($)</th>
+                    </tr>
+                </thead>
+                <tbody id="itemsBody">
+                    <!-- Items inserted here -->
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="5" class="text-right font-bold">សរុប / Total</td>
+                        <td id="dispTotal" class="font-bold text-right">0.00</td>
+                    </tr>
+                    <tr>
+                        <td colspan="5" class="text-right">ប្រាក់កក់ / Deposit</td>
+                        <td><input type="number" id="deposit" step="0.01" value="0" 
+                            class="w-full border-0 text-right focus:outline-none bg-transparent no-print"></td>
+                    </tr>
+                    <tr>
+                        <td colspan="5" class="text-right font-bold">នៅសល់ / Balance</td>
+                        <td id="dispBalance" class="font-bold text-right">0.00</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <!-- 🎯 ACTION BUTTONS - Hidden in PDF -->
+        <div class="flex gap-4 mb-8 flex-wrap no-print">
+            <button onclick="clearAll()" 
+                class="bg-red-500 hover:bg-red-600 text-white px-5 py-2 rounded-md">
+                🗑️ Clear All
+            </button>
+            <button onclick="downloadPDF()" 
+                class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-md font-medium">
+                📄 Download PDF
+            </button>
+            <button onclick="downloadWord()" 
+                class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-md font-medium">
+                📝 Download Word Receipt
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let items = [];
+
+        // Format date as DD/MM/YYYY
+        function formatDateDDMMYYYY(dateStr) {
+            if (!dateStr) return '';
+            const [y, m, d] = dateStr.split('-');
+            return `${d}/${m}/${y}`;
+        }
+
+        function getTodayDDMMYYYY() {
+            const now = new Date();
+            const d = String(now.getDate()).padStart(2, '0');
+            const m = String(now.getMonth() + 1).padStart(2, '0');
+            const y = now.getFullYear();
+            return `${d}/${m}/${y}`;
+        }
+
+        // Update display when inputs change
+        document.querySelectorAll('#companyName, #companyDesc, #companyTel, #paymentMethod, #customerName, #deposit')
+            .forEach(el => el.addEventListener('input', updateDisplay));
+
+        function updateDisplay() {
+            document.getElementById('dispCompanyName').textContent = document.getElementById('companyName').value;
+            document.getElementById('dispCompanyDesc').textContent = document.getElementById('companyDesc').value;
+            document.getElementById('dispTel').textContent = document.getElementById('companyTel').value;
+            document.getElementById('dispPayment').textContent = document.getElementById('paymentMethod').value;
+            document.getElementById('dispCustomer').textContent = document.getElementById('customerName').value;
+            calculateTotals();
+        }
+
+        function addItem() {
+            const date = document.getElementById('itemDate').value;
+            const name = document.getElementById('itemName').value.trim();
+            const qty = parseFloat(document.getElementById('itemQty').value);
+            const price = parseFloat(document.getElementById('itemPrice').value);
+
+            if (!date || !name || isNaN(qty) || isNaN(price)) {
+                alert('Please fill all fields correctly!');
+                return;
+            }
+
+            items.push({ date, name, qty, price, amount: qty * price });
+            
+            document.getElementById('itemDate').value = '';
+            document.getElementById('itemQty').value = '';
+            renderTable();
+        }
+
+        function removeItem(index) {
+            items.splice(index, 1);
+            renderTable();
+        }
+
+        function clearAll() {
+            if (confirm('Clear all items?')) {
+                items = [];
+                document.getElementById('deposit').value = 0;
+                renderTable();
+            }
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('itemsBody');
+            tbody.innerHTML = '';
+            
+            items.forEach((item, idx) => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="text-center">${idx + 1}</td>
+                        <td>${formatDateDDMMYYYY(item.date)}</td>
+                        <td>${item.name}</td>
+                        <td class="text-center">${item.qty}</td>
+                        <td class="text-right">${item.price.toFixed(2)}</td>
+                        <td class="text-right">${item.amount.toFixed(2)}</td>
+                        <td class="text-center no-print">
+                            <button onclick="removeItem(${idx})" class="text-red-500 hover:text-red-700 text-xs">✕</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            calculateTotals();
+        }
+
+        function calculateTotals() {
+            const total = items.reduce((sum, i) => sum + i.amount, 0);
+            const deposit = parseFloat(document.getElementById('deposit').value) || 0;
+            document.getElementById('dispTotal').textContent = total.toFixed(2);
+            document.getElementById('dispBalance').textContent = (total - deposit).toFixed(2);
+        }
+
+        // ✅ FIXED PDF DOWNLOAD
+        function downloadPDF() {
+            if (items.length === 0) {
+                alert('Add at least one item first!');
+                return;
+            }
+
+            // Hide remove buttons before PDF generation
+            document.querySelectorAll('.no-print').forEach(el => el.style.display = 'none');
+
+            const element = document.getElementById('receiptPreview');
+            const opt = {
+                margin: [15, 15, 15, 15], // top, right, bottom, left
+                filename: `Receipt_${document.getElementById('customerName').value.replace(/\s+/g, '_')}_${getTodayDDMMYYYY().replace(/\//g, '-')}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { 
+                    scale: 2, 
+                    useCORS: true,
+                    letterRendering: true
+                },
+                jsPDF: { 
+                    unit: 'mm', 
+                    format: 'a4', 
+                    orientation: 'portrait',
+                    compress: true
+                },
+                pagebreak: { mode: 'avoid-all' }
+            };
+
+            html2pdf()
+                .set(opt)
+                .from(element)
+                .save()
+                .then(() => {
+                    // Restore hidden elements
+                    document.querySelectorAll('.no-print').forEach(el => el.style.display = '');
+                });
+        }
+
+        // ✅ Word Download (unchanged, works perfectly)
+        function downloadWord() {
+            if (items.length === 0) {
+                alert('Add at least one item first!');
+                return;
+            }
+
+            const companyName = document.getElementById('companyName').value;
+            const companyDesc = document.getElementById('companyDesc').value;
+            const tel = document.getElementById('companyTel').value;
+            const payment = document.getElementById('paymentMethod').value;
+            const customer = document.getElementById('customerName').value;
+            const total = items.reduce((sum, i) => sum + i.amount, 0);
+            const deposit = parseFloat(document.getElementById('deposit').value) || 0;
+            const balance = total - deposit;
+            const today = getTodayDDMMYYYY();
+
+            let rowsHtml = '';
+            items.forEach((item, idx) => {
+                rowsHtml += `
+                    <tr>
+                        <td align="center">${idx + 1}</td>
+                        <td>${formatDateDDMMYYYY(item.date)}</td>
+                        <td>${item.name}</td>
+                        <td align="center">${item.qty}</td>
+                        <td align="right">${item.price.toFixed(2)}</td>
+                        <td align="right">${item.amount.toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+
+            const wordContent = `
+<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:w="urn:schemas-microsoft-com:office:word"
+      xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="utf-8">
+<style>
+body { font-family: "Noto Sans Khmer", Arial, sans-serif; font-size: 12pt; padding: 20px; }
+table { border-collapse: collapse; width: 100%; }
+td, th { border: 1px solid #000; padding: 8px; font-size: 11pt; }
+th { background: #f0f0f0; }
+h1 { font-size: 18pt; font-weight: bold; text-transform: uppercase; margin: 0; }
+h2 { font-size: 16pt; font-weight: bold; text-align: center; margin: 20px 0; }
+</style>
+</head>
+<body>
+<div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
+  <div>
+    <h1>${companyName}</h1>
+    <p style="font-size: 14pt; margin: 5px 0;">${companyDesc}</p>
+  </div>
+  <div style="text-align: right;">
+    <p>${tel}</p>
+    <p>${payment}</p>
+  </div>
+</div>
+<h2>OFFICIAL RECEIPT</h2>
+<p><strong>Customer:</strong> ${customer}</p>
+<p><strong>Date:</strong> ${today}</p>
+<table>
+  <thead>
+    <tr>
+      <th align="center">ល.រ<br/>No</th>
+      <th align="center">កាលបរិច្ឆេទ<br/>Date</th>
+      <th align="center">ឈ្មោះទំនិញ<br/>Name</th>
+      <th align="center">ចំនួន (ម³)<br/>Qty</th>
+      <th align="center">តម្លៃ<br/>Price ($)</th>
+      <th align="center">តម្លៃសរុប<br/>Amount ($)</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${rowsHtml}
+  </tbody>
+  <tfoot>
+    <tr>
+      <td colspan="5" align="right"><strong>សរុប / Total</strong></td>
+      <td align="right"><strong>${total.toFixed(2)}</strong></td>
+    </tr>
+    <tr>
+      <td colspan="5" align="right">ប្រាក់កក់ / Deposit</td>
+      <td align="right">${deposit.toFixed(2)}</td>
+    </tr>
+    <tr>
+      <td colspan="5" align="right"><strong>នៅសល់ / Balance</strong></td>
+      <td align="right"><strong>${balance.toFixed(2)}</strong></td>
+    </tr>
+  </tfoot>
+</table>
+</body>
+</html>`;
+
+            const blob = new Blob([wordContent], { type: 'application/msword' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Receipt_${customer.replace(/\s+/g, '_')}_${today.replace(/\//g, '-')}.doc`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // Initialize today's date
+        document.getElementById('itemDate').valueAsDate = new Date();
+    </script>
+</body>
+</html>
